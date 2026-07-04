@@ -209,10 +209,270 @@ PROPERTY_CHECKLIST = [
     },
 ]
 
+LOAN_CHECKLIST = [
+    {
+        "id": 1,
+        "question": (
+            "Is the loan agreement present and duly executed by all parties? "
+            "Verify signatures, date, and notarial attestation."
+        ),
+        "topic": "title",
+    },
+    {
+        "id": 2,
+        "question": (
+            "Is the mortgage deed or charge document registered with the "
+            "relevant Sub-Registrar under Section 17 of the Registration "
+            "Act 1908? Verify registration number and date."
+        ),
+        "topic": "encumbrance",
+    },
+    {
+        "id": 3,
+        "question": (
+            "Is the security property free from all prior encumbrances, "
+            "charges, or liens? Has a search been conducted at the "
+            "Sub-Registrar's office?"
+        ),
+        "topic": "encumbrance",
+    },
+    {
+        "id": 4,
+        "question": (
+            "Is the title of the mortgagor to the security property clear "
+            "and marketable? Are all title documents present and consistent?"
+        ),
+        "topic": "title",
+    },
+    {
+        "id": 5,
+        "question": (
+            "Is the loan amount, interest rate, repayment schedule, and "
+            "penalty clause clearly specified and consistent across all "
+            "documents?"
+        ),
+        "topic": "consideration",
+    },
+    {
+        "id": 6,
+        "question": (
+            "Are the State Bank of Pakistan prudential regulations complied "
+            "with? Is the debt-to-equity ratio and exposure limit within "
+            "permissible limits?"
+        ),
+        "topic": "tax",
+    },
+    {
+        "id": 7,
+        "question": (
+            "Is the borrower's CNIC verified and consistent across all "
+            "loan documents? Is the borrower an active FBR filer?"
+        ),
+        "topic": "cnic",
+    },
+    {
+        "id": 8,
+        "question": (
+            "Is a valuation report for the security property present and "
+            "prepared by a SECP-approved valuer? Does it support the "
+            "loan-to-value ratio?"
+        ),
+        "topic": "boundaries",
+    },
+    {
+        "id": 9,
+        "question": (
+            "Is an insurance policy on the security property present and "
+            "assigned in favour of the lending institution?"
+        ),
+        "topic": "utilities",
+    },
+    {
+        "id": 10,
+        "question": (
+            "Are all NOCs from relevant authorities present for the "
+            "security property? Is the property free from any government "
+            "acquisition notice?"
+        ),
+        "topic": "noc",
+    },
+    {
+        "id": 11,
+        "question": (
+            "Is there any ongoing litigation, court order, or injunction "
+            "against the borrower or the security property?"
+        ),
+        "topic": "litigation",
+    },
+    {
+        "id": 12,
+        "question": (
+            "Are the disbursement conditions clearly specified? Has the "
+            "borrower satisfied all conditions precedent to disbursement?"
+        ),
+        "topic": "conditions",
+    },
+    {
+        "id": 13,
+        "question": (
+            "Is the personal guarantee or corporate guarantee present and "
+            "executed? Is the guarantor's financial capacity documented?"
+        ),
+        "topic": "attestation",
+    },
+    {
+        "id": 14,
+        "question": (
+            "Are withholding tax obligations under the Income Tax Ordinance "
+            "2001 on loan interest payments documented and complied with?"
+        ),
+        "topic": "tax",
+    },
+    {
+        "id": 15,
+        "question": (
+            "Is the registered mutation (Intiqal) of the security property "
+            "consistent with the title documents? Is the Fard-e-Malkiat "
+            "attached and verified?"
+        ),
+        "topic": "mutation",
+    },
+]
+
+ACQUISITION_CHECKLIST = [
+    {
+        "id": 1,
+        "question": (
+            "Is the Share Purchase Agreement or Asset Purchase Agreement "
+            "present and duly executed by authorised signatories of both parties?"
+        ),
+        "topic": "title",
+    },
+    {
+        "id": 2,
+        "question": (
+            "Is the target company duly incorporated under the Companies "
+            "Act 2017? Are the Certificate of Incorporation, Memorandum, "
+            "and Articles of Association present?"
+        ),
+        "topic": "attestation",
+    },
+    {
+        "id": 3,
+        "question": (
+            "Are all SECP filings current and compliant? Are annual returns, "
+            "Form-A, Form-29, and audited financial statements filed and "
+            "up to date?"
+        ),
+        "topic": "noc",
+    },
+    {
+        "id": 4,
+        "question": (
+            "Is the share register present and consistent with the SECP "
+            "record? Are all share transfers properly executed and stamped?"
+        ),
+        "topic": "title",
+    },
+    {
+        "id": 5,
+        "question": (
+            "Are there any encumbrances, charges, or pledges over the "
+            "shares or assets of the target company registered with SECP?"
+        ),
+        "topic": "encumbrance",
+    },
+    {
+        "id": 6,
+        "question": (
+            "Is the consideration amount consistent across all transaction "
+            "documents? Is it supported by board resolutions and shareholder "
+            "approvals?"
+        ),
+        "topic": "consideration",
+    },
+    {
+        "id": 7,
+        "question": (
+            "Are there any pending or threatened litigation, arbitration, "
+            "regulatory proceedings, or tax disputes involving the target "
+            "company?"
+        ),
+        "topic": "litigation",
+    },
+    {
+        "id": 8,
+        "question": (
+            "Are all material contracts, licences, and permits of the target "
+            "company present? Do they contain change-of-control clauses "
+            "that require counterparty consent?"
+        ),
+        "topic": "conditions",
+    },
+    {
+        "id": 9,
+        "question": (
+            "Are all outstanding tax liabilities — income tax, sales tax, "
+            "withholding tax — of the target company disclosed and quantified? "
+            "Are FBR tax clearance certificates present?"
+        ),
+        "topic": "tax",
+    },
+    {
+        "id": 10,
+        "question": (
+            "Are all employee-related liabilities — provident fund, EOBI, "
+            "SESSI, gratuity — disclosed and adequately provided for?"
+        ),
+        "topic": "utilities",
+    },
+    {
+        "id": 11,
+        "question": (
+            "Is the Competition Commission of Pakistan (CCP) merger filing "
+            "required? If so, has prior approval been obtained?"
+        ),
+        "topic": "noc",
+    },
+    {
+        "id": 12,
+        "question": (
+            "Are the CNICs of all directors and major shareholders verified "
+            "and consistent with SECP records?"
+        ),
+        "topic": "cnic",
+    },
+    {
+        "id": 13,
+        "question": (
+            "Are all representations and warranties in the acquisition "
+            "agreement adequately supported by the disclosed documents?"
+        ),
+        "topic": "attestation",
+    },
+    {
+        "id": 14,
+        "question": (
+            "Are all conditions precedent to closing satisfied or waived? "
+            "List any outstanding closing conditions."
+        ),
+        "topic": "conditions",
+    },
+    {
+        "id": 15,
+        "question": (
+            "Is the Anti-Money Laundering Act 2010 compliance documented? "
+            "Is the source of acquisition funds clearly established and "
+            "supported by bank evidence?"
+        ),
+        "topic": "aml",
+    },
+]
+
 CHECKLISTS = {
     "property"    : PROPERTY_CHECKLIST,
-    "loan"        : PROPERTY_CHECKLIST,   # Day 4 will have dedicated checklists
-    "acquisition" : PROPERTY_CHECKLIST,
+    "loan"        : LOAN_CHECKLIST,
+    "acquisition" : ACQUISITION_CHECKLIST,
 }
 
 
@@ -223,7 +483,12 @@ def _parse_llm_response(raw: str, question_item: dict) -> dict:
     """
     try:
         # Strip markdown code fences if present
-        clean = re.sub(r"```(?:json)?", "", raw).strip()
+        # Strip thinking tokens from reasoning models (e.g. Qwen, DeepSeek)
+        clean = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL)
+        # Strip markdown code fences
+        clean = re.sub(r"```(?:json)?", "", clean).strip()
+        # Strip any trailing backticks or stray characters
+        clean = clean.replace("`", "").strip()
         data = json.loads(clean)
         # Inject constitutional basis if not provided
         if not data.get("constitutional_basis"):

@@ -53,6 +53,11 @@ async def upload_documents(
     transaction_type: str = Form(default="property"),
     city: str = Form(default="islamabad"),
     housing_society: str = Form(default=""),
+    firm_name: str = Form(default="Law Firm"),
+    firm_address: str = Form(default=""),
+    firm_phone: str = Form(default=""),
+    firm_email: str = Form(default=""),
+    firm_tagline: str = Form(default=""),
 ):
     session_id = str(uuid.uuid4())[:8]
     session_dir = UPLOAD_DIR / session_id
@@ -72,6 +77,11 @@ async def upload_documents(
         "transaction_type" : transaction_type,
         "city"             : city,
         "housing_society"  : housing_society,
+        "firm_name"        : firm_name,
+        "firm_address"     : firm_address,
+        "firm_phone"       : firm_phone,
+        "firm_email"       : firm_email,
+        "firm_tagline"     : firm_tagline,
     }
     status_store[session_id] = "uploaded"
 
@@ -136,7 +146,11 @@ async def _run_pipeline(session_id: str):
             generate_memo,
             results,
             output_path,
-            "Law Firm",
+            info.get("firm_name", "Law Firm"),
+            info.get("firm_address", ""),
+            info.get("firm_phone", ""),
+            info.get("firm_email", ""),
+            info.get("firm_tagline", ""),
             info["transaction_type"],
             info["city"],
             doc_names,

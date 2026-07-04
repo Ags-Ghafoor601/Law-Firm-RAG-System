@@ -73,8 +73,8 @@ def run_test(pdf_path: str):
     if groq_key:
         from llama_index.llms.groq import Groq
         from llama_index.core import Settings
-        Settings.llm = Groq(model="llama-3.3-70b-versatile", api_key=groq_key)
-        logger.info("  LLM: Groq Llama 3.3 70B")
+        Settings.llm = Groq(model="openai/gpt-oss-120b", api_key=groq_key)
+        logger.info("  LLM: Groq GPT-OSS 120B")
     else:
         logger.warning("  GROQ_API_KEY not set — retrieval-only mode (no synthesis)")
 

@@ -515,11 +515,12 @@ LLM. This dual-retrieval ensures every LLM response is grounded in both the
 uploaded document and the applicable Pakistani statute.
 
 \subsubsection{Layer 8 --- LLM Generation (Claude Sonnet 4.6 / Groq)}
-Retrieved chunks, the checklist question, and a structured system prompt are sent
-to Claude Sonnet 4.6 (production) or Groq Llama 3.3 70B (development/testing).
-The LLM responds in a structured JSON format: \texttt{finding},
-\texttt{clause\_reference}, \texttt{page\_number}, \texttt{risk\_level}, and
-\texttt{recommendation}. Red flag detection is integrated into the same pass.
+Retrieved chunks, the checklist question, and a structured system prompt are sent to
+Claude Sonnet 4.6 (production) or Groq GPT-OSS 120B (development/testing). The LLM
+responds in a structured JSON format enforcing nine fields: \texttt{finding},
+\texttt{reasoning}, \texttt{document\_citation}, \texttt{statutory\_citation},
+\texttt{constitutional\_basis}, \texttt{risk\_level},\\
+\texttt{recommendation}, \texttt{missing\_documents}, and \texttt{query\_source}. Red flag detection is integrated into the same pass.
 
 \subsubsection{Layer 9 --- Output Generation (python-docx + ReportLab)}
 \texttt{python-docx} assembles the Word memo. ReportLab generates a PDF version.
@@ -574,18 +575,30 @@ following reasons:
     on long-document analysis, clause identification, and contradiction detection.
 \end{itemize}
 
-\subsubsection{Groq Llama 3.3 70B (Development \& Testing)}
+\subsubsection{Groq GPT-OSS 120B (Development \& Testing)}
 
 \begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{Migration context:} Groq deprecated \texttt{llama-3.3-70b-versatile}
+    on June 30, 2026 (decommission date: August 16, 2026). The project initially
+    migrated to \texttt{qwen/qwen3.6-27b} but discovered it is a reasoning model
+    that leaks \texttt{<think>} tokens into responses, breaking JSON parsing.
+    The project then migrated to \texttt{openai/gpt-oss-120b} --- a non-thinking
+    MoE model with 200K TPD free-tier quota --- which produces clean structured
+    output required by the legal memo pipeline.
     \item \textbf{Cost:} Completely free on the developer tier---no credit card
     required, no per-token charge.
-    \item \textbf{Free-tier rate limits:} 30 RPM, 1,000 RPD, 12,000 TPM, and
-    100,000 TPD---sufficient for all development and demo testing workflows.
-    \item \textbf{Speed:} LPU hardware delivers 300--400 tokens per second,
-    making demo runs impressively fast for client presentations.
+    \item \textbf{Why GPT-OSS 120B:} Selected as the production replacement
+    after Qwen3.6 27B was found to be a reasoning model that leaks internal
+    chain-of-thought tokens (\texttt{<think>} blocks) into API responses,
+    breaking the structured JSON memo pipeline. GPT-OSS 120B is a non-thinking
+    MoE model with clean structured output, 200K tokens per day free-tier quota
+    (double the previous model), and benchmark performance matching or surpassing
+    proprietary models on reasoning and instruction-following tasks.
+    \item \textbf{Speed:} Groq LPU hardware delivers fast inference, making
+    demo runs impressively responsive for client presentations.
     \item \textbf{API compatibility:} OpenAI-compatible endpoint---switching to
-    Claude in production requires changing only the base URL and API key. Zero
-    other code changes.
+    Claude Sonnet 4.6 in production requires changing only the base URL and
+    API key. Zero other code changes.
 \end{itemize}
 
 \subsubsection{HuggingFace paraphrase-multilingual-MiniLM-L12-v2 (Embeddings)}
@@ -745,9 +758,12 @@ Vector store (ChromaDB, runs locally)         & ---    & FREE    & \$0.000 \\
 \end{table}
 
 \begin{calloutbox}{Development Cost During This Sprint}
-All 5-day sprint development and testing uses Groq Llama 3.3 70B on the free
-tier. \textbf{Total API development cost: PKR 0.} Free-tier limits (30 RPM,
-12K TPM, 100K tokens/day) are sufficient for all testing and demo workflows.
+All sprint development and testing uses Groq GPT-OSS 120B on the free tier
+(migrated from Llama 3.3 70B following Groq's June 30, 2026 deprecation notice;
+Qwen3.6 27B was trialled but rejected due to reasoning token leakage breaking
+JSON parsing). \textbf{Total API development cost: PKR 0.} Free-tier quota:
+30 RPM, 1K RPD, 8K TPM, 200K TPD --- sufficient for all testing and demo
+workflows.
 \end{calloutbox}
 
 \subsection{Monthly SaaS Cost Projections}
@@ -825,40 +841,43 @@ subscription pays for itself within the first week of use via time savings alone
 
 \subsection{Primary Targets for Day 4 Demo}
 
-\subsubsection{Target 1 --- Rana Ijaz \& Partners (Islamabad)}
+\subsubsection{Target 1 — Josh and Mak International (Islamabad)}
 
 \begin{itemize}[leftmargin=1.5cm]
-    \item \textbf{Founded:} 1967 (formerly Rana Law Chambers)
-    \item \textbf{Location:} Islamabad
-    \item \textbf{Practice areas:} Legal due diligence, contracts, company
-    incorporation, commercial litigation, domestic and international arbitration
-    \item \textbf{Why a fit:} ``Legal due diligence'' is explicitly listed as a
-    core practice area---a direct product-market match
+    \item \textbf{Location:} No. 01, LG Floor, Josh and Mak International, Park Avenue, Hamza Rd, F-11/1, Islamabad
+    \item \textbf{Practice areas:} Legal due diligence, corporate law,
+    real estate, M\&A, energy, banking and finance, property transactions
+    \item \textbf{Rankings:} Listed on Legal 500 as one of the leading
+    law firms in Pakistan
+    \item \textbf{Why a fit:} Explicitly provides property due diligence,
+    land record searches, and M\&A due diligence as named practice areas.
+    The firm has a dedicated due diligence service page on its website.
+    \item \textbf{Contact:} aemen@joshandmak.com · www.joshandmakinternational.com
+    · +92-304-8734889
     \item \textbf{Transaction type for demo:} Property due diligence
-    \item \textbf{Outreach:} LinkedIn search ``Rana Ijaz Partners Islamabad'' and
-    website contact form; request the Managing Partner or Senior Associate
-    handling due diligence matters
 \end{itemize}
 
-\subsubsection{Target 2 --- M.A. Awan \& Co. / MAACO (Rawalpindi \& Islamabad)}
+\subsubsection{Target 2 — Mumtaz \& Brohi (Islamabad)}
 
 \begin{itemize}[leftmargin=1.5cm]
-    \item \textbf{Location:} Headquartered in Rawalpindi and Islamabad
-    \item \textbf{Practice areas:} Corporate, commercial, real estate, banking,
-    tax, civil, and criminal law
-    \item \textbf{Why a fit:} Covers all three target transaction types; based
-    in Rawalpindi making an in-person demo logistically simple
-    \item \textbf{Transaction types for demo:} Property due diligence (primary),
-    loan documentation review (secondary)
-    \item \textbf{Outreach:} Lawzana.com listing for direct contact details;
-    call and ask for the partner handling property or banking transactions
+    \item \textbf{Founded:} 2010
+    \item \textbf{Location:} House No. 134, Street No. 60,
+    Sector I-8/3, Islamabad
+    \item \textbf{Practice areas:} Corporate, commercial, real estate,
+    banking, finance, arbitration, intellectual property,
+    telecommunications
+    \item \textbf{Rankings:} Listed on Legal 500 as one of the top
+    law firms of Pakistan; dynamic team of foreign-qualified lawyers
+    \item \textbf{Why a fit:} Full transactional practice covering all
+    three target transaction types (property, loan, acquisition).
+    Serves multinational corporations, financial institutions, and
+    commercial enterprises --- the exact client profile that demands
+    fast due diligence turnaround.
+    \item \textbf{Contact:} info@mumtazandbrohi.com · www.mumtazandbrohi.com
+    · +92-51-4800851
+    \item \textbf{Transaction types for demo:} Property due diligence
+    (primary), acquisition due diligence (secondary)
 \end{itemize}
-
-\subsection{Backup Target}
-
-\textbf{Mumtaz \& Brohi (Islamabad)} --- Premier firm with a team of
-foreign-qualified lawyers handling transactional, advisory, and adversarial legal
-services for domestic and foreign clients.
 
 \subsection{Approved Outreach Script}
 

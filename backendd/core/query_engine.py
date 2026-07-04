@@ -5,7 +5,7 @@ from llama_index.core.selectors import LLMSingleSelector
 from llama_index.core.tools import QueryEngineTool
 from llama_index.llms.groq import Groq
 
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = "openai/gpt-oss-120b"
 
 SYSTEM_PROMPT = """You are an expert Pakistani legal due diligence assistant.
 You analyze legal documents under Pakistani law including the Constitution of

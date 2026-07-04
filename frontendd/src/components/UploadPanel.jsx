@@ -5,16 +5,53 @@ const CITIES = ["islamabad", "rawalpindi", "lahore", "karachi"]
 const TYPES  = ["property", "loan", "acquisition"]
 const SOCIETIES = ["None", "DHA Islamabad", "DHA Lahore",
                    "Bahria Town Rawalpindi", "Bahria Town Lahore"]
+const FIRM_PROFILES = {
+  "josh_mak": {
+    name: "Josh and Mak International",
+    address: "No. 01, LG Floor, Josh and Mak International, Park Avenue, Hamza Rd, F-11/1, Islamabad, 44000",
+    phone: "+92-304-8734889",
+    email: "aemen@joshandmak.com",
+    tagline: "Advocates & Legal Consultants — Legal 500 Ranked",
+  },
+  "mumtaz_brohi": {
+    name: "Mumtaz & Brohi",
+    address: "House No. 134, Street No. 60, Sector I-8/3, Islamabad",
+    phone: "+92-51-4800851",
+    email: "info@mumtazandbrohi.com",
+    tagline: "Barristers & Corporate Counsel — Legal 500 Ranked",
+  },
+  "custom": {
+    name: "", address: "", phone: "", email: "", tagline: "",
+  },
+}
 
 export default function UploadPanel({ onSessionStart }) {
-  const [files, setFiles]          = useState([])
-  const [transactionType, setType] = useState("property")
-  const [city, setCity]            = useState("islamabad")
-  const [society, setSociety]      = useState("None")
-  const [loading, setLoading]      = useState(false)
-  const [error, setError]          = useState(null)
-  const [dragging, setDragging]    = useState(false)
-  const inputRef                   = useRef(null)
+  const [files, setFiles]            = useState([])
+  const [transactionType, setType]   = useState("property")
+  const [city, setCity]              = useState("islamabad")
+  const [society, setSociety]        = useState("None")
+  const [firmProfile, setFirmProfile]= useState("custom")
+  const [firmName, setFirmName]      = useState("")
+  const [firmAddress, setFirmAddress]= useState("")
+  const [firmPhone, setFirmPhone]    = useState("")
+  const [firmEmail, setFirmEmail]    = useState("")
+  const [firmTagline, setFirmTagline]= useState("")
+  const [loading, setLoading]        = useState(false)
+  const [error, setError]            = useState(null)
+  const [dragging, setDragging]      = useState(false)
+  const inputRef                     = useRef(null)
+
+  function handleFirmProfileChange(profileKey) {
+    setFirmProfile(profileKey)
+    const p = FIRM_PROFILES[profileKey]
+    if (p) {
+      setFirmName(p.name)
+      setFirmAddress(p.address)
+      setFirmPhone(p.phone)
+      setFirmEmail(p.email)
+      setFirmTagline(p.tagline)
+    }
+  }
 
   function handleFiles(fileList) {
     const pdfs = [...fileList].filter(f => f.name.toLowerCase().endsWith(".pdf"))
@@ -35,6 +72,11 @@ export default function UploadPanel({ onSessionStart }) {
     form.append("transaction_type", transactionType)
     form.append("city", city)
     form.append("housing_society", society === "None" ? "" : society)
+    form.append("firm_name", firmName || "Law Firm")
+    form.append("firm_address", firmAddress)
+    form.append("firm_phone", firmPhone)
+    form.append("firm_email", firmEmail)
+    form.append("firm_tagline", firmTagline)
     try {
       const res = await axios.post("http://localhost:8000/api/upload", form)
       onSessionStart(res.data.session_id)
@@ -54,7 +96,73 @@ export default function UploadPanel({ onSessionStart }) {
         Upload your PDF bundle and configure the review parameters below.
         The system will run a full due diligence analysis against Pakistani statutes.
       </p>
+      {/* Firm customisation */}
+      <div className="field-group">
+        <label className="field-label">Law Firm Profile</label>
+        <select
+          value={firmProfile}
+          onChange={e => handleFirmProfileChange(e.target.value)}
+        >
+          <option value="custom">Custom / Enter Manually</option>
+          <option value="josh_mak">Josh and Mak International (Islamabad)</option>
+          <option value="mumtaz_brohi">Mumtaz & Brohi (Islamabad)</option>
+        </select>
+      </div>
 
+      <div className="firm-fields">
+        <div className="field-group">
+          <label className="field-label">Firm Name</label>
+          <input
+            type="text"
+            className="text-input"
+            placeholder="e.g. Rana Ijaz & Partners"
+            value={firmName}
+            onChange={e => setFirmName(e.target.value)}
+          />
+        </div>
+        <div className="field-row">
+          <div className="field-group">
+            <label className="field-label">Phone</label>
+            <input
+              type="text"
+              className="text-input"
+              placeholder="+92-51-XXXXXXX"
+              value={firmPhone}
+              onChange={e => setFirmPhone(e.target.value)}
+            />
+          </div>
+          <div className="field-group">
+            <label className="field-label">Email</label>
+            <input
+              type="text"
+              className="text-input"
+              placeholder="info@firm.com"
+              value={firmEmail}
+              onChange={e => setFirmEmail(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="field-group">
+          <label className="field-label">Address</label>
+          <input
+            type="text"
+            className="text-input"
+            placeholder="Chamber No., Street, City"
+            value={firmAddress}
+            onChange={e => setFirmAddress(e.target.value)}
+          />
+        </div>
+        <div className="field-group">
+          <label className="field-label">Tagline (appears on memo)</label>
+          <input
+            type="text"
+            className="text-input"
+            placeholder="Advocates & Legal Consultants"
+            value={firmTagline}
+            onChange={e => setFirmTagline(e.target.value)}
+          />
+        </div>
+      </div>
       <div className="field-row">
         <div className="field-group">
           <label className="field-label">Transaction Type</label>

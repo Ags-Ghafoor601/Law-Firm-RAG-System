@@ -42,6 +42,10 @@ def generate_memo(
     results: dict,
     output_path: str,
     firm_name: str = "Law Firm",
+    firm_address: str = "",
+    firm_phone: str = "",
+    firm_email: str = "",
+    firm_tagline: str = "",
     transaction_type: str = "property",
     city: str = "Islamabad",
     document_names: list = None,
@@ -69,6 +73,43 @@ def generate_memo(
     header_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     _style_run(header_para.runs[0], size=9, colour=COLOUR_ACCENT)
 
+    # ── Letterhead ──────────────────────────────────────────────────
+    if firm_name and firm_name != "Law Firm":
+        lh_name = doc.add_paragraph()
+        lh_name.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        lh_run = lh_name.add_run(firm_name.upper())
+        lh_run.bold = True
+        lh_run.font.size = Pt(16)
+        lh_run.font.color.rgb = COLOUR_PRIMARY
+
+        if firm_tagline:
+            lh_tag = doc.add_paragraph()
+            lh_tag.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            lh_tag_run = lh_tag.add_run(firm_tagline)
+            lh_tag_run.font.size = Pt(10)
+            lh_tag_run.font.color.rgb = COLOUR_ACCENT
+            lh_tag_run.italic = True
+
+        contact_parts = []
+        if firm_address: contact_parts.append(firm_address)
+        if firm_phone:   contact_parts.append(firm_phone)
+        if firm_email:   contact_parts.append(firm_email)
+
+        if contact_parts:
+            lh_contact = doc.add_paragraph()
+            lh_contact.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            lh_contact_run = lh_contact.add_run(" · ".join(contact_parts))
+            lh_contact_run.font.size = Pt(9)
+            lh_contact_run.font.color.rgb = COLOUR_ACCENT
+
+        # Divider line
+        lh_div = doc.add_paragraph()
+        lh_div.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        lh_div_run = lh_div.add_run("─" * 60)
+        lh_div_run.font.color.rgb = COLOUR_PRIMARY
+        lh_div_run.font.size = Pt(8)
+        doc.add_paragraph()
+        
     # ── Cover section ───────────────────────────────────────────────
     title = doc.add_paragraph()
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER

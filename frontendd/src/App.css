@@ -958,3 +958,31 @@ select option {
   .ask-btn         { width: 100%; justify-content: center; }
   .download-meta   { flex-direction: column; align-items: center; gap: 0.5rem; }
 }
+
+/* ── Text inputs ────────────────────────────────────── */
+.text-input {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.04);
+  transition: var(--transition);
+}
+.text-input:focus {
+  outline: none;
+  border-color: var(--gold);
+  background: rgba(201,168,76,0.03);
+  box-shadow: 0 0 0 3px var(--gold-dim);
+}
+.text-input::placeholder { color: var(--text-muted); }
+
+.firm-fields {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.2rem;
+  margin-bottom: 1.2rem;
+}

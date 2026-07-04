@@ -60,11 +60,15 @@ export default function QAPanel({ sessionId }) {
           rows={3}
           placeholder="e.g. Does this agreement comply with Section 54 of the Transfer of Property Act 1882?"
           value={question}
+          maxLength={500}
           onChange={e => setQuestion(e.target.value)}
           onKeyDown={e => {
             if (e.key === "Enter" && e.ctrlKey) handleAsk()
           }}
         />
+        <p className="hint" style={{ textAlign: "right" }}>
+          {question.length}/500 characters
+        </p>
         <button
           className="ask-btn"
           onClick={handleAsk}

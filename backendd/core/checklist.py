@@ -640,6 +640,7 @@ def run_freeform_query(
     """
     Handle a free-form legal question from the lawyer.
     """
+    time.sleep(2)
     dual_engine = build_dual_engine(session_index, legal_corpus_index)
     try:
         response = dual_engine.query(question)

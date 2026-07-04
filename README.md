@@ -1,5 +1,5 @@
 # Legal RAG System — AI-Powered Due Diligence
-**Internship Project · Pair A · AI/ML Domain · 5-Day Sprint**
+**Internship Project · Pair B · AI/ML Domain · 5-Day Sprint**
 
 A RAG-based document review system for Pakistani law firms.
 Compresses 5–7 day due diligence turnaround to same-day delivery.

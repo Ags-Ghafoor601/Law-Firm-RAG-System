@@ -57,18 +57,28 @@ export default function App() {
         )}
 
         {sessionId && status !== "complete" && (
-          <ProgressBar
-            sessionId={sessionId}
-            progress={progress}
-            onComplete={(res) => {
-              setResults(res)
-              setStatus("complete")
-            }}
-            onStatusUpdate={(s, p) => {
-              setStatus(s)
-              setProgress(p)
-            }}
-          />
+          <>
+            <ProgressBar
+              sessionId={sessionId}
+              progress={progress}
+              onComplete={(res) => {
+                setResults(res)
+                setStatus("complete")
+              }}
+              onStatusUpdate={(s, p) => {
+                setStatus(s)
+                setProgress(p)
+              }}
+            />
+            {status && status.startsWith("error") && (
+              <div className="panel" style={{ marginTop: "1rem" }}>
+                <div className="error">
+                  ⚠️ Pipeline failed: {status.replace("error: ", "")}. 
+                  Please refresh and try again.
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {status === "complete" && results && (

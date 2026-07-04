@@ -33,6 +33,20 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 # In-memory session and status store
 sessions: dict = {}
 status_store: dict = {}
+SESSION_TTL_HOURS = 24
+
+def _cleanup_old_sessions():
+    """Remove sessions older than SESSION_TTL_HOURS."""
+    import time as _time
+    now = _time.time()
+    to_delete = [
+        sid for sid, data in sessions.items()
+        if now - data.get("created_at", now) > SESSION_TTL_HOURS * 3600
+    ]
+    for sid in to_delete:
+        sessions.pop(sid, None)
+        status_store.pop(sid, None)
+        logger.info(f"Cleaned up expired session: {sid}")
 
 
 # ── Request/Response models ────────────────────────────────────────────
@@ -63,14 +77,31 @@ async def upload_documents(
     session_dir = UPLOAD_DIR / session_id
     session_dir.mkdir(exist_ok=True)
 
+    MAX_FILE_SIZE_MB = 50
+    MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+
     saved_files = []
+    if len(files) > 10:
+        raise HTTPException(
+            400,
+            "Maximum 10 files per upload. Please split into multiple sessions."
+        )
     for file in files:
         if not file.filename.lower().endswith(".pdf"):
             raise HTTPException(400, f"{file.filename} is not a PDF.")
-        dest = session_dir / file.filename
         content = await file.read()
+        if len(content) > MAX_FILE_SIZE_BYTES:
+            raise HTTPException(
+                400,
+                f"{file.filename} exceeds {MAX_FILE_SIZE_MB}MB limit. "
+                f"Please split large documents into smaller bundles."
+            )
+        dest = session_dir / file.filename
         dest.write_bytes(content)
         saved_files.append(str(dest))
+
+    import time as _time
+    _cleanup_old_sessions()
 
     sessions[session_id] = {
         "files"            : saved_files,
@@ -82,6 +113,7 @@ async def upload_documents(
         "firm_phone"       : firm_phone,
         "firm_email"       : firm_email,
         "firm_tagline"     : firm_tagline,
+        "created_at"       : _time.time(),
     }
     status_store[session_id] = "uploaded"
 

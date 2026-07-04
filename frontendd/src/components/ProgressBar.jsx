@@ -35,7 +35,10 @@ export default function ProgressBar({ sessionId, progress, onComplete, onStatusU
           const r = await axios.get(`http://localhost:8000/api/results/${sessionId}`)
           onComplete(r.data)
         }
-        if (status.startsWith("error")) clearInterval(intervalRef.current)
+        if (status.startsWith("error")) {
+          clearInterval(intervalRef.current)
+          onStatusUpdate(status, 0)
+        }
       } catch (e) {
         console.error("Status poll failed:", e)
       }

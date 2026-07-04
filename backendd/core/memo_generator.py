@@ -295,7 +295,7 @@ def generate_memo(
         _style_cell(row.cells[0], bold=True, colour=COLOUR_PRIMARY)
 
         # Colour HIGH risk cells red
-        needs_action = "YES" in value and "Action" in value or "required" in value.lower()
+        needs_action = value.strip().startswith("YES")
         _style_cell(
             row.cells[1],
             colour=COLOUR_RED if needs_action else None,

@@ -13,7 +13,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-CHROMA_PATH = Path("./chroma_db")
+CHROMA_PATH = Path(__file__).parent.parent / "chroma_db"
 EMBED_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 LEGAL_CORPUS_COLLECTION = "legal_corpus_pk"
 

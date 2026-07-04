@@ -134,15 +134,16 @@ def detect_special_flags(pages: list[dict]) -> dict:
     high_value = _detect_high_value_transaction(full_text)
 
     return {
-        "is_inherited"      : any(ind in full_text for ind in INHERITED_INDICATORS),
-        "benami_risk"       : any(ind in full_text for ind in BENAMI_INDICATORS),
-        "has_urdu"          : any(p["is_urdu"] for p in pages),
-        "has_ocr_pages"     : any(p["has_ocr"] for p in pages),
-        "housing_society"   : detected_society,
-        "high_value_txn"    : high_value["above_5m"],
-        "aml_threshold"     : high_value["above_10m"],
-        "fbr_applicable"    : high_value["above_5m"],
-        "aml_indicators"    : any(ind in full_text for ind in AML_INDICATORS),
+        "is_inherited"        : any(ind in full_text for ind in INHERITED_INDICATORS),
+        "benami_risk"         : any(ind in full_text for ind in BENAMI_INDICATORS),
+        "has_urdu"            : any(p["is_urdu"] for p in pages),
+        "has_ocr_pages"       : any(p["has_ocr"] for p in pages),
+        "housing_society"     : detected_society,
+        "high_value_txn"      : high_value["above_5m"],
+        "aml_threshold"       : high_value["above_10m"],
+        "fbr_applicable"      : high_value["above_5m"],
+        "aml_indicators"      : any(ind in full_text for ind in AML_INDICATORS),
+        "detected_value_pkr"  : high_value["detected_value_pkr"],
     }
 
 

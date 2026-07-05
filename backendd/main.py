@@ -261,10 +261,14 @@ async def freeform_query(request: QARequest):
     from core.checklist import run_freeform_query
     import asyncio
 
-    result = await asyncio.to_thread(
-        run_freeform_query,
-        request.question,
-        session_index,
-        legal_index,
-    )
-    return result
+    try:
+        result = await asyncio.to_thread(
+            run_freeform_query,
+            request.question,
+            session_index,
+            legal_index,
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Freeform query failed for {session_id}: {e}")
+        raise HTTPException(500, f"Query failed: {str(e)}")

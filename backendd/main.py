@@ -1,5 +1,6 @@
 import uuid
 import os
+import shutil
 import logging
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
@@ -34,9 +35,10 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 sessions: dict = {}
 status_store: dict = {}
 SESSION_TTL_HOURS = 24
+VALID_TRANSACTION_TYPES = {"property", "loan", "acquisition"}
 
 def _cleanup_old_sessions():
-    """Remove sessions older than SESSION_TTL_HOURS."""
+    """Remove sessions older than SESSION_TTL_HOURS, including files and ChromaDB."""
     import time as _time
     now = _time.time()
     to_delete = [
@@ -44,6 +46,23 @@ def _cleanup_old_sessions():
         if now - data.get("created_at", now) > SESSION_TTL_HOURS * 3600
     ]
     for sid in to_delete:
+        # Clean up uploaded files
+        session_dir = UPLOAD_DIR / sid
+        if session_dir.exists():
+            shutil.rmtree(session_dir, ignore_errors=True)
+        # Clean up generated memo
+        memo_path = OUTPUT_DIR / f"{sid}_memo.docx"
+        if memo_path.exists():
+            memo_path.unlink(missing_ok=True)
+        # Clean up ChromaDB collection
+        try:
+            import chromadb
+            chroma_client = chromadb.PersistentClient(
+                path=str(Path("./chroma_db"))
+            )
+            chroma_client.delete_collection(f"session_{sid}")
+        except Exception:
+            pass  # Collection may already be gone
         sessions.pop(sid, None)
         status_store.pop(sid, None)
         logger.info(f"Cleaned up expired session: {sid}")
@@ -76,6 +95,14 @@ async def upload_documents(
     session_id = str(uuid.uuid4())[:8]
     session_dir = UPLOAD_DIR / session_id
     session_dir.mkdir(exist_ok=True)
+
+    # Validate transaction type
+    if transaction_type not in VALID_TRANSACTION_TYPES:
+        raise HTTPException(
+            400,
+            f"Invalid transaction type '{transaction_type}'. "
+            f"Must be one of: {', '.join(sorted(VALID_TRANSACTION_TYPES))}",
+        )
 
     MAX_FILE_SIZE_MB = 50
     MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024

@@ -3,22 +3,9 @@ import re
 import time
 import logging
 from core.query_engine import build_dual_engine, get_llm
-from core.document_processor import get_constitutional_basis
+from core.document_processor import get_constitutional_basis, CONSTITUTIONAL_MAP
 
 logger = logging.getLogger(__name__)
-
-# ── Pakistani constitutional article mapping ──────────────────────────
-CONSTITUTIONAL_MAP = {
-    "title"       : "Article 23 — Right to acquire and dispose of property",
-    "noc"         : "Article 24 — Protection of property rights",
-    "encumbrance" : "Article 24 — Protection of property rights",
-    "co-owner"    : "Article 25 — Equality of citizens",
-    "litigation"  : "Article 24 — Protection of property rights",
-    "tax"         : "Article 23 — Right to acquire property subject to law",
-    "inheritance" : "Article 23 — Right to acquire and dispose of property",
-    "benami"      : "Article 24 — Protection against unlawful deprivation",
-    "mutation"    : "Article 23 — Right to acquire and dispose of property",
-}
 
 # ── Red flag detection rules ──────────────────────────────────────────
 RED_FLAG_RULES = [

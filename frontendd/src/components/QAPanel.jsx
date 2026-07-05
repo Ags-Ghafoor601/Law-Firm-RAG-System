@@ -1,5 +1,6 @@
 import { useState } from "react"
 import axios from "axios"
+import API_BASE from "../config"
 
 const EXAMPLES = [
   "Does this agreement comply with Section 54 of the Transfer of Property Act?",
@@ -20,7 +21,7 @@ export default function QAPanel({ sessionId }) {
     setError(null)
     setAnswer(null)
     try {
-      const res = await axios.post("http://localhost:8000/api/query", {
+      const res = await axios.post(`${API_BASE}/api/query`, {
         session_id: sessionId,
         question,
       })

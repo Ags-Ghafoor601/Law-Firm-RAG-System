@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import axios from "axios"
+import API_BASE from "../config"
 
 const STAGES = [
   { key: "processing", label: "Extract",  short: "1" },
@@ -22,22 +23,28 @@ export default function ProgressBar({ sessionId, progress, onComplete, onStatusU
   const intervalRef   = useRef(null)
   const [currentStatus, setCurrentStatus] = useState("uploaded")
 
+  // Keep stable refs to callbacks so the interval never goes stale
+  const onCompleteRef     = useRef(onComplete)
+  const onStatusUpdateRef = useRef(onStatusUpdate)
+  onCompleteRef.current     = onComplete
+  onStatusUpdateRef.current = onStatusUpdate
+
   useEffect(() => {
     intervalRef.current = setInterval(async () => {
       try {
-        const res = await axios.get(`http://localhost:8000/api/status/${sessionId}`)
+        const res = await axios.get(`${API_BASE}/api/status/${sessionId}`)
         const { status, progress: p } = res.data
         setCurrentStatus(status)
-        onStatusUpdate(status, p)
+        onStatusUpdateRef.current(status, p)
 
         if (status === "complete") {
           clearInterval(intervalRef.current)
-          const r = await axios.get(`http://localhost:8000/api/results/${sessionId}`)
-          onComplete(r.data)
+          const r = await axios.get(`${API_BASE}/api/results/${sessionId}`)
+          onCompleteRef.current(r.data)
         }
         if (status.startsWith("error")) {
           clearInterval(intervalRef.current)
-          onStatusUpdate(status, 0)
+          onStatusUpdateRef.current(status, 0)
         }
       } catch (e) {
         console.error("Status poll failed:", e)

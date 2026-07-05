@@ -1,5 +1,6 @@
 import { useState, useRef } from "react"
 import axios from "axios"
+import API_BASE from "../config"
 
 const CITIES = ["islamabad", "rawalpindi", "lahore", "karachi"]
 const TYPES  = ["property", "loan", "acquisition"]
@@ -78,7 +79,7 @@ export default function UploadPanel({ onSessionStart }) {
     form.append("firm_email", firmEmail)
     form.append("firm_tagline", firmTagline)
     try {
-      const res = await axios.post("http://localhost:8000/api/upload", form)
+      const res = await axios.post(`${API_BASE}/api/upload`, form)
       onSessionStart(res.data.session_id)
     } catch (e) {
       setError(e.response?.data?.detail || "Upload failed. Is the backend running?")

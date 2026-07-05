@@ -986,3 +986,31 @@ select option {
   padding: 1.2rem;
   margin-bottom: 1.2rem;
 }
+
+/* ── Start Over button ─────────────────────────────── */
+.start-over-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.9rem;
+  margin-top: 0.5rem;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: var(--transition);
+  letter-spacing: 0.02em;
+}
+.start-over-btn:hover {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--gold);
+  color: var(--gold-light);
+  box-shadow: 0 0 15px var(--gold-dim);
+  transform: translateY(-1px);
+}

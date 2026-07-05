@@ -1,3 +1,4 @@
+import os
 import pdfplumber
 import pytesseract
 from pdf2image import convert_from_path
@@ -5,7 +6,11 @@ from pathlib import Path
 from langdetect import detect
 import logging
 import re
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+pytesseract.pytesseract.tesseract_cmd = os.getenv(
+    "TESSERACT_CMD",
+    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,13 +48,19 @@ HOUSING_SOCIETY_PATTERNS = {
 }
 
 CONSTITUTIONAL_MAP = {
-    "title": "Article 23 — Right to acquire and dispose of property",
-    "noc": "Article 24 — Protection of property rights",
-    "encumbrance": "Article 24 — Protection of property rights",
-    "co-owner": "Article 25 — Equality of citizens",
-    "litigation": "Article 24 — Protection of property rights",
-    "ownerless": "Article 172 — Property vesting in Federal/Provincial government",
-    "tax": "Article 23 — Right to acquire property subject to law",
+    "title"           : "Article 23 — Right to acquire and dispose of property",
+    "noc"             : "Article 24 — Protection of property rights",
+    "encumbrance"     : "Article 24 — Protection of property rights",
+    "co-owner"        : "Article 25 — Equality of citizens",
+    "litigation"      : "Article 24 — Protection of property rights",
+    "ownerless"       : "Article 172 — Property vesting in Federal/Provincial government",
+    "tax"             : "Article 23 — Right to acquire property subject to law",
+    "inheritance"     : "Article 23 — Right to acquire and dispose of property",
+    "benami"          : "Article 24 — Protection against unlawful deprivation",
+    "mutation"        : "Article 23 — Right to acquire and dispose of property",
+    "aml"             : "Article 23 — Right to acquire property subject to law",
+    "housing_society" : "Article 24 — Protection of property rights",
+    "general"         : "Article 23 — Right to acquire and dispose of property",
 }
 
 

@@ -26,17 +26,6 @@ def _risk_colour(level: str) -> RGBColor:
     return mapping.get(level.upper(), COLOUR_ACCENT)
 
 
-def _set_cell_bg(cell, hex_colour: str):
-    """Set table cell background colour."""
-    from docx.oxml.ns import qn
-    from docx.oxml import parse_xml
-    shading = parse_xml(
-        f'<w:shd {cell._element.nsmap["w"]} '
-        f'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
-        f'w:fill="{hex_colour}" w:val="clear"/>'
-    )
-    cell._tc.get_or_add_tcPr().append(shading)
-
 
 def generate_memo(
     results: dict,

@@ -3,6 +3,7 @@ import UploadPanel from "./components/UploadPanel"
 import ProgressBar from "./components/ProgressBar"
 import ResultPanel from "./components/ResultPanel"
 import QAPanel from "./components/QAPanel"
+import API_BASE from "./config"
 import "./App.css"
 
 export default function App() {
@@ -11,6 +12,14 @@ export default function App() {
   const [progress, setProgress]     = useState(0)
   const [results, setResults]       = useState(null)
   const [activeTab, setActiveTab]   = useState("checklist")
+
+  function handleStartOver() {
+    setSessionId(null)
+    setStatus(null)
+    setProgress(0)
+    setResults(null)
+    setActiveTab("checklist")
+  }
 
   const TABS = [
     { id: "checklist", icon: "📋", label: "Review Findings" },
@@ -106,7 +115,7 @@ export default function App() {
                   red flags, constitutional citations, and FBR compliance assessment.
                 </p>
                 <a
-                  href={`http://localhost:8000/api/download/${sessionId}`}
+                  href={`${API_BASE}/api/download/${sessionId}`}
                   className="download-btn"
                   download
                 >
@@ -120,6 +129,16 @@ export default function App() {
               </div>
             )}
           </>
+        )}
+
+        {/* Start Over button — visible whenever a session is active */}
+        {sessionId && (
+          <button
+            className="start-over-btn"
+            onClick={handleStartOver}
+          >
+            🔄 Start New Review
+          </button>
         )}
       </main>
     </div>

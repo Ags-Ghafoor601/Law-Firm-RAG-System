@@ -1,4 +1,2 @@
-/* Global reset — all design tokens live in App.css */
-body {
-  margin: 0;
-}
+/* Global entry — all tokens and component styles live in ./styles */
+@import './styles/app.css';

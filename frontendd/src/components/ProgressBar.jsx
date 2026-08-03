@@ -1,96 +1,110 @@
-import { useEffect, useRef, useState } from "react"
-import axios from "axios"
-import API_BASE from "../config"
+import useSessionPolling from '../hooks/useSessionPolling'
+
+/**
+ * Live pipeline progress.
+ *
+ * The polling logic moved into `useSessionPolling`, which fixes overlapping
+ * requests, silent network failures and unmount leaks. What remains here is
+ * presentation — plus the accessibility the previous version lacked entirely:
+ * the bar is a real `progressbar` and stage changes are announced politely.
+ */
 
 const STAGES = [
-  { key: "processing", label: "Extract",  short: "1" },
-  { key: "indexing",   label: "Index",    short: "2" },
-  { key: "querying",   label: "Analyse",  short: "3" },
-  { key: "generating", label: "Generate", short: "4" },
-  { key: "complete",   label: "Done",     short: "✓" },
+  { key: 'extracting', label: 'Extract', step: '1' },
+  { key: 'indexing',   label: 'Index',   step: '2' },
+  { key: 'analysing',  label: 'Analyse', step: '3' },
+  { key: 'generating', label: 'Generate', step: '4' },
+  { key: 'complete',   label: 'Done',    step: '✓' },
 ]
 
-const STAGE_LABELS = {
-  uploaded   : "Documents received...",
-  processing : "Extracting text, detecting Urdu content and legal flags...",
-  indexing   : "Building multilingual vector index in ChromaDB...",
-  querying   : "Running 15+ due diligence questions against Pakistani statutes...",
-  generating : "Generating structured review memorandum...",
-  complete   : "Review complete!",
-}
+export default function ProgressBar({ sessionId, onComplete, onFailure, onCancel }) {
+  const { status, progress, label, error } = useSessionPolling(sessionId, {
+    onComplete,
+    onError: onFailure,
+  })
 
-export default function ProgressBar({ sessionId, progress, onComplete, onStatusUpdate }) {
-  const intervalRef   = useRef(null)
-  const [currentStatus, setCurrentStatus] = useState("uploaded")
-
-  // Keep stable refs to callbacks so the interval never goes stale
-  const onCompleteRef     = useRef(onComplete)
-  const onStatusUpdateRef = useRef(onStatusUpdate)
-  onCompleteRef.current     = onComplete
-  onStatusUpdateRef.current = onStatusUpdate
-
-  useEffect(() => {
-    intervalRef.current = setInterval(async () => {
-      try {
-        const res = await axios.get(`${API_BASE}/api/status/${sessionId}`)
-        const { status, progress: p } = res.data
-        setCurrentStatus(status)
-        onStatusUpdateRef.current(status, p)
-
-        if (status === "complete") {
-          clearInterval(intervalRef.current)
-          const r = await axios.get(`${API_BASE}/api/results/${sessionId}`)
-          onCompleteRef.current(r.data)
-        }
-        if (status.startsWith("error")) {
-          clearInterval(intervalRef.current)
-          onStatusUpdateRef.current(status, 0)
-        }
-      } catch (e) {
-        console.error("Status poll failed:", e)
-      }
-    }, 2000)
-    return () => clearInterval(intervalRef.current)
-  }, [sessionId])
-
-  const stageIndex = STAGES.findIndex(s => s.key === currentStatus)
+  const currentIndex = STAGES.findIndex((stage) => stage.key === status)
+  const failed = status === 'failed' || Boolean(error)
 
   return (
-    <div className="panel progress-panel">
-      <h2>Processing Documents</h2>
+    <section className="panel progress-panel" aria-labelledby="progress-heading">
+      <h2 id="progress-heading">Reviewing your documents</h2>
       <p className="panel-subtitle">
-        Running full Pakistani legal due diligence analysis...
+        The bundle is being read, indexed and interrogated against Pakistani
+        statutes. You can leave this page open — the review continues on the server.
       </p>
 
-      <div className="stage-steps">
-        {STAGES.map((stage, i) => {
-          const isDone   = i < stageIndex
-          const isActive = i === stageIndex
+      <ol className="stage-steps" aria-label="Pipeline stages">
+        {STAGES.map((stage, index) => {
+          const done = currentIndex > index || status === 'complete'
+          const active = currentIndex === index && status !== 'complete'
           return (
-            <div key={stage.key} className="stage-step">
-              <div className={`stage-dot ${isDone ? "done" : isActive ? "active" : ""}`}>
-                {isDone ? "✓" : stage.short}
-              </div>
-              <span className={`stage-label-text ${isDone ? "done" : isActive ? "active" : ""}`}>
+            <li
+              key={stage.key}
+              className={`stage-step${done ? ' done' : ''}`}
+              aria-current={active ? 'step' : undefined}
+            >
+              <span
+                className={`stage-dot${done ? ' done' : active ? ' active' : ''}`}
+                aria-hidden="true"
+              >
+                {done ? '✓' : stage.step}
+              </span>
+              <span
+                className={`stage-label-text${done ? ' done' : active ? ' active' : ''}`}
+              >
                 {stage.label}
               </span>
-            </div>
+              <span className="sr-only">
+                {done ? 'completed' : active ? 'in progress' : 'pending'}
+              </span>
+            </li>
           )
         })}
-      </div>
+      </ol>
 
-      <div className="stage-label">
-        {STAGE_LABELS[currentStatus] || "Working..."}
-      </div>
+      <p className="stage-label" aria-live="polite" aria-atomic="true">
+        {failed
+          ? error || 'The review could not be completed.'
+          : label || 'Preparing the review…'}
+      </p>
 
-      <div className="progress-track">
-        <div className="progress-fill" style={{ width: `${progress}%` }} />
+      <div
+        className="progress-track"
+        role="progressbar"
+        aria-valuenow={progress}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Review progress"
+      >
+        <div className="progress-fill" style={{ width: `${Math.max(progress, 2)}%` }} />
       </div>
-      <div className="progress-pct">{progress}% complete</div>
+      <p className="progress-pct">{progress}% complete</p>
+
+      {failed && (
+        <div className="alert alert-error mt-4" role="alert">
+          <span aria-hidden="true">⚠</span>
+          <div className="alert-body">
+            <div className="alert-title">The review stopped</div>
+            <div className="alert-detail">
+              {error || 'An unexpected error ended the pipeline.'}
+            </div>
+          </div>
+        </div>
+      )}
 
       <p className="hint">
-        ⏱ Typically 3–6 minutes · Groq auto-retries on rate limits
+        Typically two to five minutes, depending on bundle size and how many pages
+        need OCR. Rate limits are handled automatically with backoff.
       </p>
-    </div>
+
+      {onCancel && (
+        <div className="btn-row" style={{ justifyContent: 'center', marginTop: 'var(--s-4)' }}>
+          <button type="button" className="btn btn-ghost" onClick={onCancel}>
+            {failed ? 'Start a new review' : 'Cancel and start over'}
+          </button>
+        </div>
+      )}
+    </section>
   )
 }

@@ -1,369 +1,479 @@
-from docx import Document
-from docx.shared import Pt, RGBColor, Inches, Cm
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from pathlib import Path
+"""
+Word (.docx) memorandum writer.
+
+Improvements over the previous build:
+
+* **Emoji were used as risk markers** (🔴 🟡 🟢).  Word substitutes a fallback
+  glyph for these in many installed fonts, so a memorandum that looked correct
+  on the developer's machine printed as tofu boxes on a client's.  Risk is now
+  conveyed by real cell shading plus a text label, which renders identically
+  everywhere and survives monochrome printing.
+* **Cells were only ever font-coloured**, never shaded, because ``python-docx``
+  exposes no shading API — the previous build simply did without.  Shading is
+  applied here through the underlying ``w:shd`` element.
+* **Findings appeared in question order**, so a HIGH-risk item could sit on
+  page nine.  They are now ordered by risk, then by question number.
+* **Page numbers, an executive summary and a document inventory were absent.**
+  All three are now present, and every value is defensively coerced so a
+  malformed finding cannot abort generation of the whole memorandum.
+"""
+
+from __future__ import annotations
+
 import logging
-from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from docx import Document
+from docx.enum.section import WD_SECTION
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Cm, Pt, RGBColor
+
+from core.memo_model import DISCLAIMER, MemoModel, build_memo_model
 
 logger = logging.getLogger(__name__)
 
-# ── Colour constants ───────────────────────────────────────────────────
-COLOUR_PRIMARY   = RGBColor(0x14, 0x3C, 0x6E)   # dark blue
-COLOUR_ACCENT    = RGBColor(0x00, 0x70, 0xA4)   # mid blue
-COLOUR_RED       = RGBColor(0xAA, 0x23, 0x23)   # risk red
-COLOUR_AMBER     = RGBColor(0xB8, 0x5C, 0x00)   # medium amber
-COLOUR_GREEN     = RGBColor(0x1E, 0x6E, 0x37)   # low green
-COLOUR_LIGHT     = RGBColor(0xF5, 0xF5, 0xF5)   # light gray
+# ── Palette ───────────────────────────────────────────────────────────────
+NAVY = RGBColor(0x14, 0x3C, 0x6E)
+AZURE = RGBColor(0x00, 0x70, 0xA4)
+RISK_RED = RGBColor(0xAA, 0x23, 0x23)
+AMBER = RGBColor(0xB8, 0x5C, 0x00)
+FOREST = RGBColor(0x1E, 0x6E, 0x37)
+SLATE = RGBColor(0x4B, 0x55, 0x63)
+WHITE = RGBColor(0xFF, 0xFF, 0xFF)
+
+SHADE_HEADER = "143C6E"
+SHADE_LABEL = "EEF2F8"
+SHADE_HIGH = "FBE9E9"
+SHADE_MEDIUM = "FDF2E3"
+SHADE_LOW = "EAF6EE"
+SHADE_MUTED = "F4F6FA"
+
+RISK_TEXT = {
+    "HIGH": ("HIGH RISK", RISK_RED, SHADE_HIGH),
+    "MEDIUM": ("MEDIUM RISK", AMBER, SHADE_MEDIUM),
+    "LOW": ("LOW RISK", FOREST, SHADE_LOW),
+}
 
 
-def _risk_colour(level: str) -> RGBColor:
-    mapping = {
-        "HIGH"  : COLOUR_RED,
-        "MEDIUM": COLOUR_AMBER,
-        "LOW"   : COLOUR_GREEN,
-    }
-    return mapping.get(level.upper(), COLOUR_ACCENT)
+# ──────────────────────────────────────────────────────────────────────────
+#  Low-level helpers
+# ──────────────────────────────────────────────────────────────────────────
+def _shade(cell: Any, hex_colour: str) -> None:
+    """Apply background shading — python-docx has no API for this."""
+    try:
+        element = OxmlElement("w:shd")
+        element.set(qn("w:val"), "clear")
+        element.set(qn("w:color"), "auto")
+        element.set(qn("w:fill"), hex_colour)
+        cell._tc.get_or_add_tcPr().append(element)
+    except Exception:                                        # noqa: BLE001
+        pass
 
 
+def _write_cell(cell: Any, text: str, *, bold: bool = False,
+                colour: RGBColor | None = None, size: int = 9,
+                shade: str | None = None) -> None:
+    cell.text = ""
+    paragraph = cell.paragraphs[0]
+    paragraph.paragraph_format.space_before = Pt(1)
+    paragraph.paragraph_format.space_after = Pt(1)
+    run = paragraph.add_run(str(text if text is not None else ""))
+    run.bold = bold
+    run.font.size = Pt(size)
+    if colour is not None:
+        run.font.color.rgb = colour
+    if shade:
+        _shade(cell, shade)
 
+
+def _heading(doc: Document, text: str, *, level: int = 1) -> None:
+    paragraph = doc.add_paragraph()
+    paragraph.paragraph_format.space_before = Pt(12 if level == 1 else 8)
+    paragraph.paragraph_format.space_after = Pt(4)
+    paragraph.paragraph_format.keep_with_next = True
+    run = paragraph.add_run(text)
+    run.bold = True
+    run.font.size = Pt(13 if level == 1 else 11)
+    run.font.color.rgb = NAVY
+
+
+def _rule(doc: Document, colour: RGBColor = NAVY) -> None:
+    paragraph = doc.add_paragraph()
+    paragraph.paragraph_format.space_before = Pt(0)
+    paragraph.paragraph_format.space_after = Pt(6)
+    run = paragraph.add_run("─" * 78)
+    run.font.size = Pt(6)
+    run.font.color.rgb = colour
+
+
+def _body(doc: Document, text: str, *, size: int = 10,
+          colour: RGBColor | None = None, italic: bool = False) -> None:
+    paragraph = doc.add_paragraph()
+    paragraph.paragraph_format.space_after = Pt(6)
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    run = paragraph.add_run(text)
+    run.font.size = Pt(size)
+    run.italic = italic
+    if colour is not None:
+        run.font.color.rgb = colour
+
+
+def _add_page_numbers(section: Any) -> None:
+    """Insert a PAGE / NUMPAGES field pair into the footer."""
+    try:
+        paragraph = section.footer.paragraphs[0]
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+        def _field(instruction: str) -> None:
+            begin = OxmlElement("w:fldChar")
+            begin.set(qn("w:fldCharType"), "begin")
+            instr = OxmlElement("w:instrText")
+            instr.set(qn("xml:space"), "preserve")
+            instr.text = instruction
+            end = OxmlElement("w:fldChar")
+            end.set(qn("w:fldCharType"), "end")
+            run = paragraph.add_run()
+            run._r.append(begin)
+            run._r.append(instr)
+            run._r.append(end)
+            run.font.size = Pt(8)
+            run.font.color.rgb = SLATE
+
+        prefix = paragraph.add_run("Page ")
+        prefix.font.size = Pt(8)
+        prefix.font.color.rgb = SLATE
+        _field("PAGE")
+        middle = paragraph.add_run(" of ")
+        middle.font.size = Pt(8)
+        middle.font.color.rgb = SLATE
+        _field("NUMPAGES")
+    except Exception:                                        # noqa: BLE001
+        logger.debug("Could not add page-number field (non-fatal).")
+
+
+def _table(doc: Document, rows: int, cols: int) -> Any:
+    table = doc.add_table(rows=rows, cols=cols)
+    table.style = "Table Grid"
+    table.alignment = WD_TABLE_ALIGNMENT.LEFT
+    table.autofit = True
+    return table
+
+
+# ──────────────────────────────────────────────────────────────────────────
+#  Sections
+# ──────────────────────────────────────────────────────────────────────────
+def _letterhead(doc: Document, model: MemoModel) -> None:
+    if not model.has_letterhead:
+        return
+    name = doc.add_paragraph()
+    name.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    name.paragraph_format.space_after = Pt(2)
+    run = name.add_run(model.firm_name.upper())
+    run.bold = True
+    run.font.size = Pt(17)
+    run.font.color.rgb = NAVY
+
+    if model.firm_tagline:
+        tagline = doc.add_paragraph()
+        tagline.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        tagline.paragraph_format.space_after = Pt(2)
+        run = tagline.add_run(model.firm_tagline)
+        run.italic = True
+        run.font.size = Pt(9.5)
+        run.font.color.rgb = AZURE
+
+    contact = " · ".join(
+        part for part in (model.firm_address, model.firm_phone, model.firm_email) if part
+    )
+    if contact:
+        line = doc.add_paragraph()
+        line.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        line.paragraph_format.space_after = Pt(4)
+        run = line.add_run(contact)
+        run.font.size = Pt(8.5)
+        run.font.color.rgb = SLATE
+    _rule(doc)
+
+
+def _cover(doc: Document, model: MemoModel) -> None:
+    title = doc.add_paragraph()
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title.paragraph_format.space_before = Pt(6)
+    title.paragraph_format.space_after = Pt(2)
+    run = title.add_run(model.title)
+    run.bold = True
+    run.font.size = Pt(18)
+    run.font.color.rgb = NAVY
+
+    subtitle = doc.add_paragraph()
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    subtitle.paragraph_format.space_after = Pt(10)
+    run = subtitle.add_run(model.subtitle)
+    run.font.size = Pt(12)
+    run.font.color.rgb = AZURE
+
+    label, colour, shade = RISK_TEXT.get(model.overall_risk, RISK_TEXT["LOW"])
+    banner = _table(doc, 1, 1)
+    _write_cell(banner.rows[0].cells[0],
+                f"OVERALL ASSESSMENT: {label}",
+                bold=True, colour=colour, size=11, shade=shade)
+    banner.rows[0].cells[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    doc.add_paragraph()
+
+
+def _summary_section(doc: Document, model: MemoModel) -> None:
+    _heading(doc, "1.  Transaction Summary")
+    rows = [
+        ("Prepared by", model.firm_name),
+        ("Date of review", model.generated_at),
+        ("Transaction type", model.transaction_type.title()),
+        ("City", model.city.title()),
+        ("Controlling authority",
+         model.authority_full_name or "Not determined"),
+        ("Applicable bye-laws", model.relevant_bylaws or "Not determined"),
+        ("Housing society", model.housing_society or "Not applicable"),
+        ("Documents reviewed", str(len(model.document_names))),
+        ("Questions assessed", str(model.total_questions)),
+    ]
+    table = _table(doc, len(rows), 2)
+    for index, (label, value) in enumerate(rows):
+        _write_cell(table.rows[index].cells[0], label, bold=True, colour=NAVY, shade=SHADE_LABEL)
+        _write_cell(table.rows[index].cells[1], value)
+    doc.add_paragraph()
+
+    if model.document_names:
+        _heading(doc, "1.1  Documents in the reviewed bundle", level=2)
+        for name in model.document_names:
+            paragraph = doc.add_paragraph(style="List Number")
+            paragraph.paragraph_format.space_after = Pt(0)
+            run = paragraph.add_run(name)
+            run.font.size = Pt(9.5)
+        doc.add_paragraph()
+
+
+def _executive_summary(doc: Document, model: MemoModel) -> None:
+    _heading(doc, "2.  Executive Summary")
+    _body(doc, model.executive_summary)
+    doc.add_paragraph()
+
+
+def _risk_section(doc: Document, model: MemoModel) -> None:
+    _heading(doc, "3.  Risk Summary")
+    table = _table(doc, 2, 4)
+    headers = ["HIGH RISK", "MEDIUM RISK", "LOW RISK", "NOT ASSESSED"]
+    shades = [SHADE_HIGH, SHADE_MEDIUM, SHADE_LOW, SHADE_MUTED]
+    colours = [RISK_RED, AMBER, FOREST, SLATE]
+    counts = [model.high_risk_count, model.medium_risk_count,
+              model.low_risk_count, model.failed_count]
+
+    for column, (header, shade, colour, count) in enumerate(
+            zip(headers, shades, colours, counts)):
+        head_cell = table.rows[0].cells[column]
+        _write_cell(head_cell, header, bold=True, colour=colour, size=9, shade=shade)
+        head_cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        value_cell = table.rows[1].cells[column]
+        _write_cell(value_cell, f"{count} item{'s' if count != 1 else ''}",
+                    bold=True, colour=colour, size=14, shade=shade)
+        value_cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    doc.add_paragraph()
+
+
+def _red_flags_section(doc: Document, model: MemoModel) -> None:
+    _heading(doc, "4.  Red Flags")
+    if not model.red_flags:
+        _body(doc, "No transaction-stopping defect was detected in the documents "
+                   "supplied. This is not a warranty of clean title; it records only "
+                   "that the deterministic rules in this system did not fire.",
+              colour=FOREST)
+        doc.add_paragraph()
+        return
+
+    table = _table(doc, len(model.red_flags) + 1, 3)
+    for column, header in enumerate(["Reference", "Defect", "Statutory and constitutional basis"]):
+        _write_cell(table.rows[0].cells[column], header,
+                    bold=True, colour=WHITE, shade=SHADE_HEADER)
+    for index, flag in enumerate(model.red_flags, start=1):
+        row = table.rows[index]
+        _write_cell(row.cells[0], str(flag.get("id", "")), bold=True,
+                    colour=RISK_RED, shade=SHADE_HIGH)
+        detail = str(flag.get("label", ""))
+        if flag.get("description"):
+            detail += f"\n{flag['description']}"
+        _write_cell(row.cells[1], detail, colour=RISK_RED)
+        basis = f"{flag.get('statute', '')}\n{flag.get('article', '')}".strip()
+        _write_cell(row.cells[2], basis, size=8, colour=SLATE)
+    doc.add_paragraph()
+
+
+def _findings_section(doc: Document, model: MemoModel) -> None:
+    _heading(doc, "5.  Clause-by-Clause Findings")
+    _body(doc, "Findings are ordered by assessed risk. Each entry records the evidence "
+               "relied on and the provision it engages, so that any conclusion can be "
+               "independently verified against the original document.",
+          size=9, colour=SLATE, italic=True)
+
+    if not model.findings:
+        _body(doc, "No findings were produced.", colour=SLATE)
+        return
+
+    for finding in model.findings:
+        risk = str(finding.get("risk_level", "LOW")).upper()
+        label, colour, shade = RISK_TEXT.get(risk, RISK_TEXT["LOW"])
+
+        header = doc.add_paragraph()
+        header.paragraph_format.space_before = Pt(10)
+        header.paragraph_format.space_after = Pt(2)
+        header.paragraph_format.keep_with_next = True
+        run = header.add_run(f"Q{finding.get('question_id', '—')}.  "
+                             f"{str(finding.get('question', ''))[:170]}")
+        run.bold = True
+        run.font.size = Pt(10.5)
+        run.font.color.rgb = NAVY
+
+        rows = [
+            ("Risk", label),
+            ("Finding", finding.get("finding")),
+            ("Reasoning", finding.get("reasoning")),
+            ("Document citation", finding.get("document_citation")),
+            ("Statutory citation", finding.get("statutory_citation")),
+            ("Constitutional basis", finding.get("constitutional_basis")),
+            ("Recommendation", finding.get("recommendation")),
+        ]
+        missing = finding.get("missing_documents") or []
+        if missing:
+            rows.append(("Documents required", "; ".join(str(m) for m in missing)))
+        confidence = finding.get("confidence")
+        if confidence:
+            rows.append(("Model confidence", str(confidence).upper()))
+
+        table = _table(doc, len(rows), 2)
+        for index, (key, value) in enumerate(rows):
+            _write_cell(table.rows[index].cells[0], key,
+                        bold=True, colour=NAVY, size=8.5, shade=SHADE_LABEL)
+            if key == "Risk":
+                _write_cell(table.rows[index].cells[1], str(value),
+                            bold=True, colour=colour, shade=shade)
+            else:
+                _write_cell(table.rows[index].cells[1],
+                            str(value if value else "Not stated"))
+    doc.add_paragraph()
+
+
+def _compliance_section(doc: Document, model: MemoModel) -> None:
+    _heading(doc, "6.  Tax, AML and Processing Compliance")
+    table = _table(doc, len(model.compliance_rows) + 1, 2)
+    _write_cell(table.rows[0].cells[0], "Matter", bold=True, colour=WHITE, shade=SHADE_HEADER)
+    _write_cell(table.rows[0].cells[1], "Determination", bold=True, colour=WHITE,
+                shade=SHADE_HEADER)
+
+    for index, row in enumerate(model.compliance_rows, start=1):
+        _write_cell(table.rows[index].cells[0], row.label,
+                    bold=True, colour=NAVY, size=8.5, shade=SHADE_LABEL)
+        text = row.value + (f"\n{row.note}" if row.note else "")
+        _write_cell(
+            table.rows[index].cells[1], text,
+            colour=RISK_RED if row.action_required else None,
+            bold=row.action_required,
+            shade=SHADE_HIGH if row.action_required else None,
+        )
+    doc.add_paragraph()
+    _body(doc,
+          "Statutory reference: Income Tax Ordinance 2001, sections 236C and 236K "
+          "(withholding tax on immovable property transactions); Anti-Money Laundering "
+          "Act 2010 (enhanced due diligence); SECP AML/CFT Regulations 2018 (designated "
+          "non-financial businesses and professions). Constitutional basis: Article 23 — "
+          "right to acquire property subject to law.",
+          size=8.5, colour=SLATE, italic=True)
+    doc.add_paragraph()
+
+
+def _missing_section(doc: Document, model: MemoModel) -> None:
+    _heading(doc, "7.  Documents to Requisition")
+    if not model.missing_documents:
+        _body(doc, "No further documents were identified as missing from the bundle.",
+              colour=FOREST)
+        doc.add_paragraph()
+        return
+    for name in model.missing_documents:
+        paragraph = doc.add_paragraph(style="List Bullet")
+        paragraph.paragraph_format.space_after = Pt(0)
+        run = paragraph.add_run(str(name))
+        run.font.size = Pt(9.5)
+        run.font.color.rgb = RISK_RED
+    doc.add_paragraph()
+
+
+def _disclaimer_section(doc: Document) -> None:
+    _heading(doc, "8.  Scope and Disclaimer")
+    _body(doc, DISCLAIMER, size=9, colour=SLATE)
+
+
+# ──────────────────────────────────────────────────────────────────────────
+#  Entry point
+# ──────────────────────────────────────────────────────────────────────────
 def generate_memo(
-    results: dict,
-    output_path: str,
+    results: dict[str, Any],
+    output_path: str | Path,
     firm_name: str = "Law Firm",
     firm_address: str = "",
     firm_phone: str = "",
     firm_email: str = "",
     firm_tagline: str = "",
     transaction_type: str = "property",
-    city: str = "Islamabad",
-    document_names: list = None,
-    flags: dict = None,
+    city: str = "islamabad",
+    document_names: list[str] | None = None,
+    flags: dict[str, Any] | None = None,
 ) -> str:
-    """
-    Generate a structured due diligence memo as a .docx file.
-    Returns the path to the generated file.
-    """
+    """Render the memorandum as a Word document and return its path."""
+    model = build_memo_model(
+        results,
+        firm_name=firm_name, firm_address=firm_address, firm_phone=firm_phone,
+        firm_email=firm_email, firm_tagline=firm_tagline,
+        transaction_type=transaction_type, city=city,
+        document_names=document_names, flags=flags,
+    )
+    return write_docx(model, output_path)
+
+
+def write_docx(model: MemoModel, output_path: str | Path) -> str:
     doc = Document()
-    document_names = document_names or []
-    flags = flags or {}
 
-    # ── Page margins ────────────────────────────────────────────────
     for section in doc.sections:
-        section.top_margin    = Cm(2.5)
-        section.bottom_margin = Cm(2.5)
-        section.left_margin   = Cm(3.0)
-        section.right_margin  = Cm(2.5)
+        section.top_margin = Cm(2.2)
+        section.bottom_margin = Cm(2.0)
+        section.left_margin = Cm(2.4)
+        section.right_margin = Cm(2.2)
+        section.start_type = WD_SECTION.NEW_PAGE
 
-    # ── Header ──────────────────────────────────────────────────────
-    header = doc.sections[0].header
-    header_para = header.paragraphs[0]
-    header_para.text = f"{firm_name} — Legal Due Diligence System"
-    header_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    _style_run(header_para.runs[0], size=9, colour=COLOUR_ACCENT)
+    style = doc.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(10)
 
-    # ── Letterhead ──────────────────────────────────────────────────
-    if firm_name and firm_name != "Law Firm":
-        lh_name = doc.add_paragraph()
-        lh_name.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        lh_run = lh_name.add_run(firm_name.upper())
-        lh_run.bold = True
-        lh_run.font.size = Pt(16)
-        lh_run.font.color.rgb = COLOUR_PRIMARY
+    header_paragraph = doc.sections[0].header.paragraphs[0]
+    header_paragraph.text = f"{model.firm_name} — Due Diligence Review"
+    header_paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    if header_paragraph.runs:
+        header_paragraph.runs[0].font.size = Pt(8)
+        header_paragraph.runs[0].font.color.rgb = SLATE
+    _add_page_numbers(doc.sections[0])
 
-        if firm_tagline:
-            lh_tag = doc.add_paragraph()
-            lh_tag.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            lh_tag_run = lh_tag.add_run(firm_tagline)
-            lh_tag_run.font.size = Pt(10)
-            lh_tag_run.font.color.rgb = COLOUR_ACCENT
-            lh_tag_run.italic = True
+    _letterhead(doc, model)
+    _cover(doc, model)
+    _summary_section(doc, model)
+    _executive_summary(doc, model)
+    _risk_section(doc, model)
+    _red_flags_section(doc, model)
+    _findings_section(doc, model)
+    _compliance_section(doc, model)
+    _missing_section(doc, model)
+    _disclaimer_section(doc)
 
-        contact_parts = []
-        if firm_address: contact_parts.append(firm_address)
-        if firm_phone:   contact_parts.append(firm_phone)
-        if firm_email:   contact_parts.append(firm_email)
-
-        if contact_parts:
-            lh_contact = doc.add_paragraph()
-            lh_contact.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            lh_contact_run = lh_contact.add_run(" · ".join(contact_parts))
-            lh_contact_run.font.size = Pt(9)
-            lh_contact_run.font.color.rgb = COLOUR_ACCENT
-
-        # Divider line
-        lh_div = doc.add_paragraph()
-        lh_div.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        lh_div_run = lh_div.add_run("─" * 60)
-        lh_div_run.font.color.rgb = COLOUR_PRIMARY
-        lh_div_run.font.size = Pt(8)
-        doc.add_paragraph()
-        
-    # ── Cover section ───────────────────────────────────────────────
-    title = doc.add_paragraph()
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = title.add_run("DUE DILIGENCE REVIEW MEMORANDUM")
-    run.bold = True
-    run.font.size = Pt(18)
-    run.font.color.rgb = COLOUR_PRIMARY
-
-    subtitle = doc.add_paragraph()
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run2 = subtitle.add_run(
-        f"{transaction_type.title()} Transaction — {city.title()}"
-    )
-    run2.font.size = Pt(13)
-    run2.font.color.rgb = COLOUR_ACCENT
-
-    doc.add_paragraph()
-
-    # ── Transaction summary table ───────────────────────────────────
-    _add_heading(doc, "1. Transaction Summary", level=1)
-    table = doc.add_table(rows=6, cols=2)
-    table.style = "Table Grid"
-    table.alignment = WD_TABLE_ALIGNMENT.LEFT
-
-    summary_data = [
-        ("Prepared by",        firm_name),
-        ("Date",               datetime.now().strftime("%d %B %Y")),
-        ("Transaction type",   transaction_type.title()),
-        ("City / Authority",   city.title()),
-        ("Documents reviewed", str(len(document_names))),
-        ("Questions assessed", str(results.get("total_questions", 0))),
-    ]
-    for i, (label, value) in enumerate(summary_data):
-        row = table.rows[i]
-        row.cells[0].text = label
-        row.cells[1].text = value
-        _style_cell(row.cells[0], bold=True, colour=COLOUR_PRIMARY)
-        _style_cell(row.cells[1])
-
-    doc.add_paragraph()
-
-    # ── Risk summary ────────────────────────────────────────────────
-    _add_heading(doc, "2. Risk Summary", level=1)
-    risk_table = doc.add_table(rows=1, cols=3)
-    risk_table.style = "Table Grid"
-    risk_table.alignment = WD_TABLE_ALIGNMENT.LEFT
-
-    headers = ["🔴 HIGH Risk", "🟡 MEDIUM Risk", "🟢 LOW Risk"]
-    counts  = [
-        results.get("high_risk_count",   0),
-        results.get("medium_risk_count", 0),
-        results.get("low_risk_count",    0),
-    ]
-    colours = ["AA2323", "B85C00", "1E6E37"]
-
-    for i, (hdr, cnt, col) in enumerate(zip(headers, counts, colours)):
-        cell = risk_table.rows[0].cells[i]
-        cell.text = f"{hdr}\n{cnt} item(s)"
-        _style_cell(cell, bold=True, colour=RGBColor.from_string(col))
-
-    doc.add_paragraph()
-
-    # ── Red flags ───────────────────────────────────────────────────
-    red_flags = results.get("red_flags", [])
-    _add_heading(doc, "3. Red Flags Detected", level=1)
-
-    if not red_flags:
-        p = doc.add_paragraph("No critical red flags detected.")
-        p.runs[0].font.color.rgb = COLOUR_GREEN
-    else:
-        for flag in red_flags:
-            p = doc.add_paragraph(style="List Bullet")
-            run = p.add_run(f"[{flag['id']}] {flag['label']}")
-            run.bold = True
-            run.font.color.rgb = COLOUR_RED
-            note = p.add_run(
-                f"\n    Statute: {flag['statute']}"
-                f"\n    Constitutional basis: {flag['article']}"
-            )
-            note.font.size = Pt(9)
-            note.font.color.rgb = COLOUR_ACCENT
-
-    doc.add_paragraph()
-
-    # ── Clause-by-clause findings ───────────────────────────────────
-    _add_heading(doc, "4. Clause-by-Clause Findings", level=1)
-
-    findings = results.get("findings", [])
-    for finding in findings:
-        q_id   = finding.get("question_id", "")
-        risk   = finding.get("risk_level", "LOW").upper()
-        colour = _risk_colour(risk)
-
-        # Question heading
-        q_para = doc.add_paragraph()
-        q_run  = q_para.add_run(
-            f"Q{q_id}. {finding.get('question', '')[:120]}"
-        )
-        q_run.bold = True
-        q_run.font.size = Pt(11)
-        q_run.font.color.rgb = COLOUR_PRIMARY
-
-        # Finding detail table
-        detail = doc.add_table(rows=7, cols=2)
-        detail.style = "Table Grid"
-
-        rows_data = [
-            ("Finding",               finding.get("finding",              "N/A")),
-            ("Reasoning",             finding.get("reasoning",            "N/A")),
-            ("Document citation",     finding.get("document_citation",    "N/A")),
-            ("Statutory citation",    finding.get("statutory_citation",   "N/A")),
-            ("Constitutional basis",  finding.get("constitutional_basis", "N/A")),
-            ("Risk level",            risk),
-            ("Recommendation",        finding.get("recommendation",       "N/A")),
-        ]
-        for i, (label, value) in enumerate(rows_data):
-            row = detail.rows[i]
-            row.cells[0].text = label
-            row.cells[1].text = value
-            _style_cell(row.cells[0], bold=True, colour=COLOUR_PRIMARY)
-            cell_colour = colour if label == "Risk level" else None
-            _style_cell(row.cells[1], colour=cell_colour)
-
-        doc.add_paragraph()
-
-    # ── FBR / AML Compliance ────────────────────────────────────────
-    _add_heading(doc, "5. FBR & AML Compliance Assessment", level=1)
-
-    fbr_applicable  = flags.get("fbr_applicable",  False)
-    aml_threshold   = flags.get("aml_threshold",   False)
-    detected_value  = flags.get("detected_value_pkr", 0)
-    aml_indicators  = flags.get("aml_indicators",  False)
-    has_urdu        = flags.get("has_urdu",         False)
-    has_ocr         = flags.get("has_ocr_pages",    False)
-
-    fbr_table = doc.add_table(rows=6, cols=2)
-    fbr_table.style = "Table Grid"
-
-    def _yn(val: bool) -> str:
-        return "YES — Action Required" if val else "No — Within Threshold"
-
-    fbr_rows = [
-        (
-            "Detected transaction value",
-            f"PKR {detected_value:,.0f}" if detected_value else "Not detected in documents",
-        ),
-        (
-            "FBR withholding tax applicable\n(Section 236C/236K — above PKR 5M)",
-            "YES — Withholding tax required (1% filers / 2% non-filers)"
-            if fbr_applicable
-            else "No — Below PKR 5,000,000 threshold",
-        ),
-        (
-            "Enhanced AML due diligence required\n(AML Act 2010 — above PKR 10M)",
-            "YES — Source of funds documentation required"
-            if aml_threshold
-            else "No — Below PKR 10,000,000 threshold",
-        ),
-        (
-            "AML risk indicators detected",
-            "YES — Review source of funds documentation"
-            if aml_indicators
-            else "None detected",
-        ),
-        (
-            "Urdu content detected in documents",
-            "YES — Multilingual processing applied"
-            if has_urdu
-            else "No — English-only document",
-        ),
-        (
-            "OCR applied to scanned pages",
-            "YES — Some pages were scanned and OCR-processed"
-            if has_ocr
-            else "No — All pages are text-based",
-        ),
-    ]
-
-    for i, (label, value) in enumerate(fbr_rows):
-        row = fbr_table.rows[i]
-        row.cells[0].text = label
-        row.cells[1].text = value
-        _style_cell(row.cells[0], bold=True, colour=COLOUR_PRIMARY)
-
-        # Colour HIGH risk cells red
-        needs_action = value.strip().startswith("YES")
-        _style_cell(
-            row.cells[1],
-            colour=COLOUR_RED if needs_action else None,
-        )
-
-    doc.add_paragraph()
-
-    # Statutory note
-    if fbr_applicable or aml_threshold:
-        note = doc.add_paragraph()
-        note_run = note.add_run(
-            "Statutory Reference: Income Tax Ordinance 2001, Sections 236C "
-            "and 236K (withholding tax on property transactions); "
-            "Anti-Money Laundering Act 2010 (enhanced due diligence); "
-            "SECP AML/CFT Regulations 2018 (designated non-financial businesses). "
-            "Constitutional basis: Article 23 — Right to acquire property "
-            "subject to applicable law."
-        )
-        note_run.font.size = Pt(9)
-        note_run.font.color.rgb = COLOUR_ACCENT
-        note_run.italic = True
-        doc.add_paragraph()
-
-    # ── Missing documents ───────────────────────────────────────────
-    _add_heading(doc, "6. Missing Documents", level=1)
-    all_missing = []
-    for f in findings:
-        all_missing.extend(f.get("missing_documents", []))
-    all_missing = list(set(all_missing))
-
-    if not all_missing:
-        doc.add_paragraph("No missing documents identified.")
-    else:
-        for doc_name in all_missing:
-            p = doc.add_paragraph(style="List Bullet")
-            p.add_run(doc_name).font.color.rgb = COLOUR_RED
-
-    doc.add_paragraph()
-
-    # ── Disclaimer ──────────────────────────────────────────────────
-    _add_heading(doc, "7. Disclaimer", level=1)
-    disclaimer = doc.add_paragraph(
-        "This memorandum has been generated with the assistance of an "
-        "AI-powered legal review system and must be reviewed, verified, "
-        "and approved by a qualified Pakistani advocate before being relied "
-        "upon. It does not constitute legal advice. All findings should be "
-        "independently verified against original documents."
-    )
-    disclaimer.runs[0].font.size = Pt(9)
-    disclaimer.runs[0].font.color.rgb = COLOUR_ACCENT
-
-    # ── Save ────────────────────────────────────────────────────────
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    doc.save(output_path)
-    logger.info(f"Memo saved: {output_path}")
-    return output_path
-
-
-def _add_heading(doc, text: str, level: int = 1):
-    p = doc.add_paragraph()
-    run = p.add_run(text)
-    run.bold = True
-    run.font.size = Pt(13 if level == 1 else 11)
-    run.font.color.rgb = COLOUR_PRIMARY
-    p.paragraph_format.space_before = Pt(8)
-    p.paragraph_format.space_after  = Pt(4)
-
-
-def _style_run(run, size: int = 10, colour: RGBColor = None, bold: bool = False):
-    run.font.size = Pt(size)
-    if colour:
-        run.font.color.rgb = colour
-    run.bold = bold
-
-
-def _style_cell(cell, bold: bool = False, colour: RGBColor = None):
-    for para in cell.paragraphs:
-        for run in para.runs:
-            run.font.size = Pt(10)
-            run.bold = bold
-            if colour:
-                run.font.color.rgb = colour
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    doc.save(str(path))
+    logger.info("Word memorandum written: %s", path)
+    return str(path)

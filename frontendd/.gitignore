@@ -1,4 +1,18 @@
-# Logs
+# ── Secrets ───────────────────────────────────────────────────────────────
+# VITE_API_KEY lives in .env. Vite's stock template only ignores *.local,
+# which leaves a plain .env exposed — so it is listed explicitly here.
+.env
+.env.*
+!.env.example
+
+# ── Dependencies and build output ────────────────────────────────────────
+node_modules
+dist
+dist-ssr
+.vite
+*.local
+
+# ── Logs ──────────────────────────────────────────────────────────────────
 logs
 *.log
 npm-debug.log*
@@ -7,16 +21,12 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
+# ── Editors and OS ────────────────────────────────────────────────────────
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj

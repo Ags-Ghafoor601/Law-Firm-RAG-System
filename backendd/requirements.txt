@@ -1,33 +1,32 @@
-# Web framework
-fastapi
-uvicorn[standard]
-python-multipart
+# ── Web framework ─────────────────────────────────────────────────────────
+fastapi>=0.115
+uvicorn[standard]>=0.32
+python-multipart>=0.0.12
+pydantic>=2.9
 
-# LlamaIndex core + integrations
-llama-index-core
-llama-index-vector-stores-chroma
-llama-index-embeddings-huggingface
-llama-index-llms-groq
+# ── LlamaIndex core + integrations ────────────────────────────────────────
+llama-index-core>=0.12
+llama-index-vector-stores-chroma>=0.4
+llama-index-embeddings-huggingface>=0.4
+llama-index-llms-groq>=0.3
 
-# Vector store
-chromadb
+# ── Vector store & embeddings ─────────────────────────────────────────────
+chromadb>=0.5
+sentence-transformers>=3.0
 
-# Embeddings
-sentence-transformers
+# ── PDF ingestion ─────────────────────────────────────────────────────────
+pdfplumber>=0.11
+pdf2image>=1.17
+pytesseract>=0.3.13
+Pillow>=10.4
 
-# PDF processing
-pdfplumber
-pdf2image
-pytesseract
-Pillow
+# ── Language detection ────────────────────────────────────────────────────
+langdetect>=1.0.9
 
-# Language detection
-langdetect
+# ── Output generation ─────────────────────────────────────────────────────
+python-docx>=1.1
+reportlab>=4.2
 
-# Output generation
-python-docx
-reportlab
-
-# Utils
-python-dotenv
-groq
+# ── Utilities ─────────────────────────────────────────────────────────────
+python-dotenv>=1.0
+groq>=0.11

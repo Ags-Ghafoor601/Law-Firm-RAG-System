@@ -12,6 +12,6 @@ Layer 6 — Vector Store: ChromaDB with a persistent local client. One collectio
 
 Layer 7 — Query Engine: LlamaIndex VectorIndexRetriever with similarity_top_k=5. For each of the 15 checklist questions, the engine runs a semantic search against the indexed collection and retrieves the 5 most relevant chunks.
 
-Layer 8 — Generation: The retrieved chunks + question + system prompt are sent to Claude Sonnet 4.6 API (or Groq Llama 3.3 70B during development). The system prompt instructs the LLM to respond in a structured JSON format: {finding, clause_reference, page_number, risk_level, recommendation}. Red flag detection runs on the same pass — any finding with risk_level: "HIGH" is flagged.
+Layer 8 — Generation: The retrieved chunks + question + system prompt are sent to Claude Sonnet 4.6 API (or Groq GPT OSS 120B during development). The system prompt instructs the LLM to respond in a structured JSON format: {finding, clause_reference, page_number, risk_level, recommendation}. Red flag detection runs on the same pass — any finding with risk_level: "HIGH" is flagged.
 
 Layer 9 — Output: python-docx assembles the Word memo. ReportLab generates a PDF version. The firm's letterhead (logo, address, contact) is injected at the top. The memo structure: cover page → transaction summary → clause-by-clause findings (tabular) → red flags section → missing documents checklist → recommendations.

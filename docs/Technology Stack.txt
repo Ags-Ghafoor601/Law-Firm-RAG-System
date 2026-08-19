@@ -4,8 +4,8 @@ LlamaIndex achieved a 35% boost in retrieval accuracy in 2025, making it a top c
 Claude Sonnet 4.6 as production LLM:
 Claude Sonnet 4.6 costs $3.00 input / $15.00 output per million tokens. It has a 1M-token context window at standard pricing — meaning even a very large document bundle can be passed in a single context without cost penalties. Claude's instruction-following is industry-leading for structured output tasks, which our JSON-format memo generation absolutely depends on. CloudZero
 
-Groq Llama 3.3 70B for development/testing:
-Groq offers a genuinely free, no-credit-card developer tier with access to every model on its ultra-fast LPU hardware, gated only by rate limits — there is no credits system and no per-token charge. Llama-3.3-70b-versatile is listed at 30 RPM, 1K RPD, 12K TPM, and 100K TPD on the Free Plan. The API is OpenAI-compatible, meaning our code needs zero changes when switching between Groq and Claude — just swap the base URL and API key. Price Per TokenTokenMix
+Groq GPT OSS 120B for development/testing:
+Groq offers a genuinely free, no-credit-card developer tier with access to every model on its ultra-fast LPU hardware, gated only by rate limits — there is no credits system and no per-token charge. openai/gpt-oss-120b is listed at 30 RPM, 1K RPD, 12K TPM, and 100K TPD on the Free Plan. The API is OpenAI-compatible, meaning our code needs zero changes when switching between Groq and Claude — just swap the base URL and API key. Price Per TokenTokenMix
 
 HuggingFace all-MiniLM-L6-v2 for embeddings: Free, open-source, runs locally. No API calls, no rate limits, no cost. 384-dimensional vectors are more than sufficient for legal clause retrieval at this scale. Fast enough to embed a 50-page document in under 10 seconds on CPU.
 
